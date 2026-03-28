@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外賓車輛通行登記系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ══════════════════════════════════════
+     ① 在此貼上你的 Apps Script 網址
+     ══════════════════════════════════════ */
+  :root {
+    --apps-script-url: ''; /* 不需改這裡，請看下方 JS */
+  }
+
+  :root {
+    --bg: #f4f1eb;
+    --surface: #fffef9;
+    --border: #d6cfc0;
+    --accent: #2d5a3d;
+    --accent-light: #e8f0ea;
+    --accent-hover: #234830;
+    --text-primary: #1a1a18;
+    --text-secondary: #6b6558;
+    --text-muted: #9c9488;
+    --danger: #c0392b;
+    --danger-light: #fdf0ee;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; line-height: 1.6; }
+
+  /* ── Setup Banner ── */
+  .setup-banner {
+    background: #fff8e1;
+    border-bottom: 2px solid #f6c90e;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: #7a5c00;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .setup-banner.hidden { display: none; }
+  .setup-banner a { color: var(--accent); font-weight: 700; text-decoration: underline; cursor: pointer; }
+  .setup-banner code {
+    font-family: 'DM Mono', monospace;
+    background: rgba(0,0,0,0.07);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ── Header ── */
+  .site-header { background: var(--accent); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 100; }
+  .site-header h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 0.05em; }
+  .site-header .badge { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.6); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ── Tab Nav ── */
+  .tab-nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 32px; gap: 4px; }
+  .tab-btn { font-family: 'Noto Sans TC', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-muted); background: none; border: none; border-bottom: 3px solid transparent; padding: 14px 20px 11px; cursor: pointer; transition: color 0.2s, border-color 0.2s; letter-spacing: 0.03em; }
+  .tab-btn:hover { color: var(--accent); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+
+  /* ── Main ── */
+  .main-content { max-width: 860px; margin: 0 auto; padding: 36px 24px 60px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; letter-spacing: -0.01em; }
+  .section-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+
+  /* ── Form Card ── */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); }
+  .form-section { margin-bottom: 28px; }
+  .form-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .form-section-label::after { content: ''; flex: 1; height: 1px; background: var(--accent-light); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .field-label .req { color: var(--danger); margin-left: 2px; }
+
+  .field-input, .field-textarea {
+    font-family: 'Noto Sans TC', sans-serif; font-size: 14px; color: var(--text-primary);
+    background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 14px; transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+  }
+  .field-input:focus, .field-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,90,61,0.1); }
+  .field-textarea { resize: vertical; min-height: 72px; }
+
+  /* ── Plates ── */
+  .plates-list { display: flex; flex-direction: column; gap: 10px; }
+  .plate-entry { display: flex; gap: 10px; align-items: center; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.2s; }
+  .plate-entry:hover { border-color: var(--accent); }
+  .plate-type-badge { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+  .plate-type-badge.car { background: #e3ecf7; color: #2166a4; }
+  .plate-type-badge.moto { background: #fef0e0; color: #d4680a; }
+  .plate-input { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; flex: 1; border: none; background: transparent; color: var(--text-primary); padding: 0; }
+  .plate-input:focus { outline: none; }
+  .plate-input::placeholder { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; letter-spacing: 0; color: var(--text-muted); font-weight: 400; }
+  .plate-name-input { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; border: none; background: transparent; color: var(--text-secondary); padding: 0; width: 100px; border-left: 1px solid var(--border); padding-left: 10px; }
+  .plate-name-input:focus { outline: none; }
+  .plate-name-input::placeholder { color: var(--text-muted); }
+  .btn-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.2s, color 0.2s; }
+  .btn-remove:hover { background: var(--danger-light); color: var(--danger); }
+  .add-plate-row { display: flex; gap: 8px; margin-top: 4px; }
+  .btn-add-plate { font-family: 'Noto Sans TC', sans-serif; font-size: 12px; font-weight: 500; padding: 8px 14px; border-radius: var(--radius-sm); border: 1.5px dashed var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: border-color 0.2s, color 0.2s, background 0.2s; }
+  .btn-add-plate.car:hover { border-color: #2166a4; color: #2166a4; background: #e3ecf7; }
+  .btn-add-plate.moto:hover { border-color: #d4680a; color: #d4680a; background: #fef0e0; }
+
+  /* ── Submit ── */
+  .btn-submit { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; font-weight: 700; color: #fff; background: var(--accent); border: none; border-radius: var(--radius-sm); padding: 13px 32px; cursor: pointer; letter-spacing: 0.05em; transition: background 0.2s, transform 0.1s, box-shadow 0.2s; box-shadow: 0 2px 8px rgba(45,90,61,0.3); width: 100%; margin-top: 8px; }
+  .btn-submit:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(45,90,61,0.35); }
+  .btn-submit:active:not(:disabled) { transform: scale(0.99); }
+  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Admin ── */
+  .admin-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .records-count { font-size: 13px; color: var(--text-muted); }
+  .records-count strong { color: var(--text-primary); }
+  .toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn-action { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; font-weight: 500; padding: 9px 18px; border-radius: var(--radius-sm); border: 1.5px solid; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; letter-spacing: 0.02em; }
+  .btn-action.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-action.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-action.secondary { background: #fff; border-color: var(--border); color: var(--text-secondary); }
+  .btn-action.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .filter-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .filter-bar label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .filter-input { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; background: #fff; color: var(--text-primary); min-width: 140px; }
+  .filter-input:focus { outline: none; border-color: var(--accent); }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .records-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .records-table thead { background: #f0ede6; }
+  .records-table th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .records-table td { padding: 12px 16px; border-bottom: 1px solid #f0ede6; vertical-align: middle; }
+  .records-table tr:last-child td { border-bottom: none; }
+  .records-table tbody tr:hover { background: var(--accent-light); }
+
+  .plate-pill { display: inline-flex; align-items: center; gap: 5px; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; padding: 3px 8px 3px 6px; border-radius: 4px; margin: 2px 2px 2px 0; }
+  .plate-pill.car { background: #e3ecf7; color: #1a5490; }
+  .plate-pill.moto { background: #fef0e0; color: #b85c0e; }
+
+  .empty-state { padding: 48px 24px; text-align: center; color: var(--text-muted); }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-state p { font-size: 14px; }
+
+  /* ── Loading Spinner ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  .spinner.dark { border-color: rgba(0,0,0,0.15); border-top-color: var(--accent); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 28px; right: 28px; background: var(--accent); color: #fff; padding: 14px 22px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; z-index: 999; max-width: 340px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { background: var(--danger); }
+
+  /* ── Config Modal ── */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .overlay.show { opacity: 1; pointer-events: all; }
+  .dialog { background: var(--surface); border-radius: var(--radius); padding: 28px 32px; box-shadow: var(--shadow-lg); max-width: 480px; width: 90%; transform: scale(0.95); transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+  .overlay.show .dialog { transform: scale(1); }
+  .dialog h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .dialog p { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+  .dialog .field-group { margin-bottom: 16px; }
+  .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .url-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'DM Mono', monospace; word-break: break-all; }
+
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .status-dot.connected { background: #2ecc71; }
+  .status-dot.disconnected { background: #e74c3c; }
+  .status-dot.checking { background: #f39c12; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+
+  @media (max-width: 600px) {
+    .main-content { padding: 24px 16px 48px; }
+    .form-row { grid-template-columns: 1fr; }
+    .site-header { padding: 0 16px; }
+    .tab-nav { padding: 0 16px; }
+    .tab-btn { padding: 14px 12px 11px; font-size: 13px; }
+    .form-card { padding: 20px 16px; }
+    .plate-name-input { width: 72px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Setup Banner -->
+<div class="setup-banner" id="setup-banner">
+  ⚙️ <strong>尚未設定 Apps Script 網址</strong>，請點 <a onclick="openConfig()">「設定連線」</a> 完成設定，資料才能跨裝置同步。
+</div>
+
+<header class="site-header">
+  <h1>🏢 外賓車輛通行登記系統</h1>
+  <span class="badge" id="conn-status" style="cursor:pointer" onclick="openConfig()">
+    <span class="status-dot disconnected" id="conn-dot"></span>
+    <span id="conn-label">未連線</span>
+  </span>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('register', this)">📝 登記申請</button>
+  <button class="tab-btn" onclick="switchTab('admin', this)">📊 後台管理</button>
+</nav>
+
+<main class="main-content">
+
+  <!-- ═══ REGISTER TAB ═══ -->
+  <div class="tab-panel active" id="tab-register">
+    <h2 class="section-title">外賓車輛通行申請</h2>
+    <p class="section-sub">請填寫以下資訊，送出後庶務組長將收到 Email 通知。</p>
+
+    <div class="form-card">
+      <div class="form-section">
+        <div class="form-section-label">活動資訊</div>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">活動 / 事由名稱 <span class="req">*</span></label>
+            <input type="text" class="field-input" id="f-event" placeholder="例：董事會議、學術參訪…">
+          </div>
+          <div class="field-group">
+            <label class="field-label">申請人姓名 <span class="req">*</span></label>
+            <input type="text" class="field-input" id="f-requester" placeholder="您的姓名">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">預計抵達日期 <span class="req">*</span></label>
+            <input type="date" class="field-input" id="f-date">
+          </div>
+          <div class="field-group">
+            <label class="field-label">預計抵達時間 <span class="req">*</span></label>
+            <input type="time" class="field-input" id="f-time">
+          </div>
+        </div>
+        <div class="form-row full">
+          <div class="field-group">
+            <label class="field-label">備註說明</label>
+            <textarea class="field-textarea" id="f-note" placeholder="其他需要說明的事項（選填）"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-label">來賓車牌資訊</div>
+        <div class="plates-list" id="plates-list"></div>
+        <div class="add-plate-row">
+          <button class="btn-add-plate car" onclick="addPlate('car')">🚗 新增汽車車牌</button>
+          <button class="btn-add-plate moto" onclick="addPlate('moto')">🏍 新增機車車牌</button>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="btn-submit" onclick="submitForm()">✅ 送出申請</button>
+    </div>
+  </div>
+
+  <!-- ═══ ADMIN TAB ═══ -->
+  <div class="tab-panel" id="tab-admin">
+    <h2 class="section-title">後台管理</h2>
+    <p class="section-sub">查看所有外賓車輛通行申請紀錄，資料來源：Google Sheets 雲端同步。</p>
+
+    <div class="admin-toolbar">
+      <span class="records-count">共 <strong id="total-count">0</strong> 筆申請</span>
+      <div class="toolbar-actions">
+        <button class="btn-action secondary" id="btn-refresh" onclick="loadRecords()">🔄 重新整理</button>
+        <button class="btn-action secondary" onclick="clearFilters()">清除篩選</button>
+        <button class="btn-action primary" id="btn-export" onclick="exportExcel()">📥 匯出 Excel</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <label>篩選：</label>
+      <input type="text" class="filter-input" id="filter-event" placeholder="活動名稱" oninput="renderTable()">
+      <input type="date" class="filter-input" id="filter-date" oninput="renderTable()">
+      <input type="text" class="filter-input" id="filter-plate" placeholder="車牌號碼" oninput="renderTable()">
+    </div>
+
+    <div class="table-wrap">
+      <table class="records-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>活動 / 事由</th>
+            <th>申請人</th>
+            <th>抵達日期</th>
+            <th>抵達時間</th>
+            <th>車牌號碼</th>
+            <th>備註</th>
+            <th>提交時間</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">📋</div>
+        <p id="empty-msg">點選「重新整理」載入資料</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Config Modal -->
+<div class="overlay" id="config-overlay">
+  <div class="dialog">
+    <h3>⚙️ 設定 Apps Script 連線</h3>
+    <p>請貼上你在 Google Apps Script「部署」後取得的網頁應用程式 URL。</p>
+    <div class="field-group">
+      <label class="field-label">Apps Script 網址 <span class="req">*</span></label>
+      <input type="text" class="field-input" id="config-url" placeholder="https://script.google.com/macros/s/…/exec">
+      <div class="url-hint" id="url-hint"></div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn-action secondary" onclick="closeConfig()">取消</button>
+      <button class="btn-action primary" onclick="saveConfig()">儲存並測試連線</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SheetJS for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+// ══════════════════════════════════════
+//  CONFIG — 可直接在此填入網址（或透過 UI 設定）
+// ══════════════════════════════════════
+let APPS_SCRIPT_URL = localStorage.getItem('vr_url') || '';
+
+// ── State ──
+let allRecords = [];   // raw rows from Sheets
+let plateCounter = 0;
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('f-date').value = today;
+  addPlate('car');
+  updateConnectionUI();
+  if (APPS_SCRIPT_URL) hideBanner();
+});
+
+// ── Connection UI ──
+function updateConnectionUI(state = APPS_SCRIPT_URL ? 'connected' : 'disconnected') {
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  dot.className = 'status-dot ' + state;
+  label.textContent = state === 'connected' ? '已連線' : state === 'checking' ? '測試中…' : '未連線';
+}
+function hideBanner() { document.getElementById('setup-banner').classList.add('hidden'); }
+
+// ── Tabs ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'admin' && APPS_SCRIPT_URL) loadRecords();
+}
+
+// ── Config Modal ──
+function openConfig() {
+  document.getElementById('config-url').value = APPS_SCRIPT_URL;
+  document.getElementById('url-hint').textContent = APPS_SCRIPT_URL ? '目前已儲存的網址：' + APPS_SCRIPT_URL : '';
+  document.getElementById('config-overlay').classList.add('show');
+}
+function closeConfig() { document.getElementById('config-overlay').classList.remove('show'); }
+async function saveConfig() {
+  const url = document.getElementById('config-url').value.trim();
+  if (!url.startsWith('https://script.google.com')) return toast('請輸入正確的 Apps Script 網址', true);
+  APPS_SCRIPT_URL = url;
+  localStorage.setItem('vr_url', url);
+  updateConnectionUI('checking');
+  closeConfig();
+  // test connection
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'GET' });
+    if (res.ok) {
+      updateConnectionUI('connected');
+      hideBanner();
+      toast('✅ 連線成功！');
+    } else throw new Error('HTTP ' + res.status);
+  } catch(e) {
+    updateConnectionUI('disconnected');
+    toast('⚠️ 連線失敗，請確認網址是否正確，以及部署設定是否為「任何人可存取」', true);
+  }
+}
+
+// ── Plates ──
+function addPlate(type) {
+  plateCounter++;
+  const id = 'plate-' + plateCounter;
+  const list = document.getElementById('plates-list');
+  const div = document.createElement('div');
+  div.className = 'plate-entry'; div.id = id; div.dataset.type = type;
+  div.innerHTML = `
+    <span class="plate-type-badge ${type}">${type==='car'?'🚗 汽車':'🏍 機車'}</span>
+    <input class="plate-input" type="text" placeholder="輸入車牌號碼" maxlength="10" oninput="this.value=this.value.toUpperCase()">
+    <input class="plate-name-input" type="text" placeholder="來賓姓名">
+    <button class="btn-remove" onclick="removePlate('${id}')" title="移除">✕</button>`;
+  list.appendChild(div);
+}
+function removePlate(id) { const el=document.getElementById(id); if(el) el.remove(); }
+function getPlates() {
+  return [...document.querySelectorAll('.plate-entry')].map(e=>({
+    type: e.dataset.type,
+    plate: e.querySelector('.plate-input').value.trim().toUpperCase(),
+    name: e.querySelector('.plate-name-input').value.trim()
+  })).filter(p=>p.plate);
+}
+
+// ── Submit ──
+async function submitForm() {
+  if (!APPS_SCRIPT_URL) { openConfig(); return toast('請先設定 Apps Script 網址', true); }
+  const event   = document.getElementById('f-event').value.trim();
+  const requester = document.getElementById('f-requester').value.trim();
+  const date    = document.getElementById('f-date').value;
+  const time    = document.getElementById('f-time').value;
+  const note    = document.getElementById('f-note').value.trim();
+  const plates  = getPlates();
+
+  if (!event)         return toast('請填寫活動 / 事由名稱', true);
+  if (!requester)     return toast('請填寫申請人姓名', true);
+  if (!date)          return toast('請選擇抵達日期', true);
+  if (!time)          return toast('請選擇抵達時間', true);
+  if (!plates.length) return toast('請至少新增一筆車牌號碼', true);
+
+  const payload = { event, requester, date, time, note, plates, submitted: new Date().toLocaleString('zh-TW') };
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>送出中…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      toast('✅ 申請已送出！庶務組長將收到 Email 通知。');
+      resetForm();
+    } else throw new Error(data.message || '未知錯誤');
+  } catch(e) {
+    toast('❌ 送出失敗：' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✅ 送出申請';
+  }
+}
+
+function resetForm() {
+  ['f-event','f-requester','f-time','f-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('plates-list').innerHTML='';
+  plateCounter=0; addPlate('car');
+}
+
+// ── Load Records (from Sheets via GET) ──
+async function loadRecords() {
+  if (!APPS_SCRIPT_URL) { toast('請先設定 Apps Script 網址', true); return; }
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner dark"></span>載入中…';
+  document.getElementById('empty-msg').textContent = '載入中…';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?t=' + Date.now());
+    const raw = await res.json(); // array of row objects with column header keys
+    // Group rows back into records by (submitted + event + requester)
+    const map = new Map();
+    raw.forEach(row => {
+      const key = [row['提交時間'], row['活動/事由'], row['申請人']].join('|');
+      if (!map.has(key)) map.set(key, { event: row['活動/事由'], requester: row['申請人'], date: row['抵達日期'], time: row['抵達時間'], note: row['備註'], submitted: row['提交時間'], plates:[] });
+      map.get(key).plates.push({ type: row['車輛類型']==='汽車'?'car':'moto', plate: row['車牌號碼'], name: row['來賓姓名'] });
+    });
+    allRecords = [...map.values()];
+    renderTable();
+    document.getElementById('empty-msg').textContent = '尚無符合條件的申請紀錄';
+  } catch(e) {
+    toast('❌ 載入失敗：' + e.message, true);
+    document.getElementById('empty-msg').textContent = '載入失敗，請確認連線設定';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 重新整理';
+  }
+}
+
+// ── Table Render ──
+function getFiltered() {
+  const fe = document.getElementById('filter-event').value.toLowerCase();
+  const fd = document.getElementById('filter-date').value;
+  const fp = document.getElementById('filter-plate').value.toLowerCase();
+  return allRecords.filter(r=>{
+    const me = !fe || (r.event||'').toLowerCase().includes(fe);
+    const md = !fd || r.date === fd;
+    const mp = !fp || r.plates.some(p=>(p.plate||'').toLowerCase().includes(fp));
+    return me && md && mp;
+  });
+}
+
+function renderTable() {
+  const filtered = getFiltered();
+  document.getElementById('total-count').textContent = filtered.length;
+  const tbody = document.getElementById('records-tbody');
+  const empty = document.getElementById('empty-state');
+  if (!filtered.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = filtered.map((r,i)=>`
+    <tr>
+      <td style="color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px">${i+1}</td>
+      <td><strong>${esc(r.event)}</strong></td>
+      <td>${esc(r.requester)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${esc(r.date)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${esc(r.time)}</td>
+      <td>${r.plates.map(p=>`<span class="plate-pill ${p.type}">${p.type==='car'?'🚗':'🏍'} ${esc(p.plate)}${p.name?' · '+esc(p.name):''}</span>`).join('')}</td>
+      <td style="color:var(--text-muted);font-size:12px">${esc(r.note||'—')}</td>
+      <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${esc(r.submitted)}</td>
+    </tr>`).join('');
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function clearFilters(){ ['filter-event','filter-date','filter-plate'].forEach(id=>document.getElementById(id).value=''); renderTable(); }
+
+// ── Excel Export ──
+function exportExcel() {
+  const filtered = getFiltered();
+  if (!filtered.length) return toast('目前沒有可匯出的紀錄', true);
+  const rows = [];
+  filtered.forEach(r => r.plates.forEach(p => rows.push({
+    '活動/事由': r.event, '申請人': r.requester,
+    '抵達日期': r.date, '抵達時間': r.time,
+    '車輛類型': p.type==='car'?'汽車':'機車',
+    '車牌號碼': p.plate, '來賓姓名': p.name||'',
+    '備註': r.note||'', '提交時間': r.submitted
+  })));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [20,12,14,12,10,14,12,20,18].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '外賓車輛申請');
+  const now = new Date();
+  XLSX.writeFile(wb, `外賓車輛申請_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`);
+  toast('📥 Excel 已成功匯出！');
+}
+
+// ── Toast ──
+function toast(msg, isErr=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast'+(isErr?' error':'');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
