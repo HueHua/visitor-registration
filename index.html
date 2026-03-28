@@ -335,7 +335,7 @@
 // ══════════════════════════════════════
 //  CONFIG — 可直接在此填入網址（或透過 UI 設定）
 // ══════════════════════════════════════
-let APPS_SCRIPT_URL = localStorage.getItem('vr_url') || '';
+let APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkh-YW4WOne2vBLR1NqIGSqiqN3kWEsqGF36kLGknPEjdVz_H94pTW-ObxgNiE1yUJ/exec';
 
 // ── State ──
 let allRecords = [];   // raw rows from Sheets
@@ -346,8 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f-date').value = today;
   addPlate('car');
-  updateConnectionUI();
-  if (APPS_SCRIPT_URL) hideBanner();
+  updateConnectionUI('connected');
+  hideBanner();
 });
 
 // ── Connection UI ──
