@@ -70,9 +70,12 @@
   .plate-input { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; flex: 1; border: none; background: transparent; color: var(--text-primary); padding: 0; }
   .plate-input:focus { outline: none; }
   .plate-input::placeholder { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; letter-spacing: 0; color: var(--text-muted); font-weight: 400; }
-  .plate-name-input { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; border: none; background: transparent; color: var(--text-secondary); padding: 0; width: 100px; border-left: 1px solid var(--border); padding-left: 10px; }
+  .plate-name-input { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; border: none; background: transparent; color: var(--text-secondary); padding: 0; width: 90px; border-left: 1px solid var(--border); padding-left: 10px; }
   .plate-name-input:focus { outline: none; }
   .plate-name-input::placeholder { color: var(--text-muted); }
+  .plate-phone-input { font-family: 'DM Mono', monospace; font-size: 13px; border: none; background: transparent; color: var(--text-secondary); padding: 0; width: 110px; border-left: 1px solid var(--border); padding-left: 10px; }
+  .plate-phone-input:focus { outline: none; }
+  .plate-phone-input::placeholder { font-family: 'Noto Sans TC', sans-serif; font-size: 13px; color: var(--text-muted); }
   .btn-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.2s, color 0.2s; }
   .btn-remove:hover { background: var(--danger-light); color: var(--danger); }
   .add-plate-row { display: flex; gap: 8px; margin-top: 4px; }
@@ -243,7 +246,7 @@
           <thead>
             <tr>
               <th>#</th><th>活動 / 事由</th><th>申請人</th><th>抵達日期</th>
-              <th>抵達時間</th><th>車牌號碼</th><th>備註</th><th>提交時間</th>
+              <th>抵達時間</th><th>車牌號碼</th><th>手機號碼</th><th>備註</th><th>提交時間</th>
             </tr>
           </thead>
           <tbody id="records-tbody"></tbody>
@@ -341,6 +344,7 @@ function addPlate(type) {
   div.innerHTML = '<span class="plate-type-badge ' + type + '">' + (type==='car'?'🚗 汽車':'🏍 機車') + '</span>'
     + '<input class="plate-input" type="text" placeholder="輸入車牌號碼" maxlength="10" oninput="this.value=this.value.toUpperCase()">'
     + '<input class="plate-name-input" type="text" placeholder="來賓姓名">'
+    + '<input class="plate-phone-input" type="tel" placeholder="手機號碼">'
     + '<button class="btn-remove" onclick="removePlate(\'' + id + '\')" title="移除">✕</button>';
   document.getElementById('plates-list').appendChild(div);
 }
@@ -349,7 +353,8 @@ function getPlates() {
   return [...document.querySelectorAll('.plate-entry')].map(e=>({
     type: e.dataset.type,
     plate: e.querySelector('.plate-input').value.trim().toUpperCase(),
-    name: e.querySelector('.plate-name-input').value.trim()
+    name: e.querySelector('.plate-name-input').value.trim(),
+    phone: e.querySelector('.plate-phone-input').value.trim()
   })).filter(p=>p.plate);
 }
 
@@ -397,7 +402,7 @@ async function loadRecords() {
     raw.forEach(row => {
       const key = [row['提交時間'], row['活動/事由'], row['申請人']].join('|');
       if (!map.has(key)) map.set(key, { event:row['活動/事由'], requester:row['申請人'], date:row['抵達日期'], time:row['抵達時間'], note:row['備註'], submitted:row['提交時間'], plates:[] });
-      map.get(key).plates.push({ type:row['車輛類型']==='汽車'?'car':'moto', plate:row['車牌號碼'], name:row['來賓姓名'] });
+      map.get(key).plates.push({ type:row['車輛類型']==='汽車'?'car':'moto', plate:row['車牌號碼'], name:row['來賓姓名'], phone:row['手機號碼'] });
     });
     allRecords = [...map.values()];
     renderTable();
@@ -435,6 +440,7 @@ function renderTable() {
     +'<td style="font-family:\'DM Mono\',monospace;font-size:12px">'+esc(r.date)+'</td>'
     +'<td style="font-family:\'DM Mono\',monospace;font-size:12px">'+esc(r.time)+'</td>'
     +'<td>'+r.plates.map(p=>'<span class="plate-pill '+p.type+'">'+(p.type==='car'?'🚗':'🏍')+' '+esc(p.plate)+(p.name?' · '+esc(p.name):'')+'</span>').join('')+'</td>'
+    +'<td style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--text-secondary)">'+r.plates.map(p=>p.phone?esc(p.phone):'—').join('<br>')+'</td>'
     +'<td style="color:var(--text-muted);font-size:12px">'+esc(r.note||'—')+'</td>'
     +'<td style="color:var(--text-muted);font-size:11px;white-space:nowrap">'+esc(r.submitted)+'</td>'
     +'</tr>').join('');
@@ -450,10 +456,10 @@ function exportExcel() {
   filtered.forEach(r=>r.plates.forEach(p=>rows.push({
     '活動/事由':r.event,'申請人':r.requester,'抵達日期':r.date,'抵達時間':r.time,
     '車輛類型':p.type==='car'?'汽車':'機車','車牌號碼':p.plate,'來賓姓名':p.name||'',
-    '備註':r.note||'','提交時間':r.submitted
+    '手機號碼':p.phone||'','備註':r.note||'','提交時間':r.submitted
   })));
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[20,12,14,12,10,14,12,20,18].map(w=>({wch:w}));
+  ws['!cols']=[20,12,14,12,10,14,12,14,20,18].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'外賓車輛申請');
   const now=new Date();
